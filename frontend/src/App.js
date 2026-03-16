@@ -1,23 +1,22 @@
-import logo from './logo.svg';
+import React, { useState } from 'react';
 import './App.css';
+import EquipmentList from './EquipmentList';
+import ReservationForm from './ReservationForm';
+import ReservationsPage from './ReservationsPage';
 
 function App() {
+  const [page, setPage] = useState('equipment');
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <nav style={{ marginBottom: 20 }}>
+        <button onClick={() => setPage('equipment')}>Equipment</button>
+        <button onClick={() => setPage('reserve')}>New Reservation</button>
+        <button onClick={() => setPage('reservations')}>Reservations</button>
+      </nav>
+      {page === 'equipment' && <EquipmentList />}
+      {page === 'reserve' && <ReservationForm />}
+      {page === 'reservations' && <ReservationsPage />}
     </div>
   );
 }
