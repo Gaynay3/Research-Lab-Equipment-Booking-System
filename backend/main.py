@@ -72,6 +72,10 @@ class User(BaseModel):
     RoleID: int
 
 # API endpoints
+@app.get("/")
+def root():
+    return {"message": "Research Lab Equipment Booking System API"}
+
 @app.get("/equipment", response_model=List[Equipment])
 def get_equipment():
     conn = get_db_conn()
