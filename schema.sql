@@ -6,9 +6,8 @@ CREATE TABLE Role (
     RoleName VARCHAR(50) NOT NULL UNIQUE
 );
 
--- Table: User
-CREATE TABLE "User" (
-    UserID INT PRIMARY KEY,
+-- Table: UserAccount
+CREATE TABLE UserAccount (
     UserID SERIAL PRIMARY KEY,
     FirstName VARCHAR(100) NOT NULL,
     LastName VARCHAR(100) NOT NULL,
@@ -61,6 +60,42 @@ CREATE TABLE UsageLog (
     FOREIGN KEY (ReservationID) REFERENCES Reservation(ReservationID),
     CHECK (CheckInTime IS NULL OR CheckOutTime IS NULL OR CheckInTime > CheckOutTime)
 );
+
+-- Trigger: prevent overlapping approved reservations for the same equipment
+CREATE OR REPLACE FUNCTION check_reservation_overlap()
+RETURNS TRIGGER AS $$
+DECLARE
+    overlap_count INT;
+    available_qty INT;
+    total_reserved INT;
+BEGIN
+    IF NEW.Status = 'Approved' THEN
+        -- Sum up all approved reservations for this equipment that overlap with the new time window
+        SELECT COALESCE(SUM(Qty), 0) INTO total_reserved
+        FROM Reservation
+        WHERE EquipmentID = NEW.EquipmentID
+          AND ReservationID != NEW.ReservationID
+          AND Status = 'Approved'
+          AND StartTime < NEW.EndTime
+          AND EndTime > NEW.StartTime;
+
+        -- Get total available quantity for this equipment
+        SELECT TotalQty INTO available_qty
+        FROM Equipment
+        WHERE EquipmentID = NEW.EquipmentID;
+
+        -- Reject if the new reservation would exceed total quantity
+        IF (total_reserved + NEW.Qty) > available_qty THEN
+            RAISE EXCEPTION 'Equipment is fully booked during the requested time window';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_check_overlap
+BEFORE UPDATE ON Reservation
+FOR EACH ROW EXECUTE FUNCTION check_reservation_overlap();
 
 -- Trigger: decrease CurrQty when a reservation status changes to Approved
 CREATE OR REPLACE FUNCTION decrease_equipment_qty()
