@@ -2,13 +2,14 @@
 
 -- Table: Role
 CREATE TABLE Role (
-    RoleID INT PRIMARY KEY,
+    RoleID SERIAL PRIMARY KEY,
     RoleName VARCHAR(50) NOT NULL UNIQUE
 );
 
 -- Table: User
 CREATE TABLE "User" (
     UserID INT PRIMARY KEY,
+    UserID SERIAL PRIMARY KEY,
     FirstName VARCHAR(100) NOT NULL,
     LastName VARCHAR(100) NOT NULL,
     Email VARCHAR(255) NOT NULL UNIQUE,
@@ -19,7 +20,7 @@ CREATE TABLE "User" (
 
 -- Table: Equipment
 CREATE TABLE Equipment (
-    EquipmentID INT PRIMARY KEY,
+    EquipmentID SERIAL PRIMARY KEY,
     EquipmentName VARCHAR(150) NOT NULL,
     Description VARCHAR(255),
     SerialNumber VARCHAR(100) UNIQUE,
@@ -30,52 +31,71 @@ CREATE TABLE Equipment (
 
 -- Table: Reservation
 CREATE TABLE Reservation (
-    ReservationID INT PRIMARY KEY,
+    ReservationID SERIAL PRIMARY KEY,
     UserID INT NOT NULL,
     EquipmentID INT NOT NULL,
     Qty INT NOT NULL CHECK (Qty > 0),
-    StartTime DATETIME NOT NULL,
-    EndTime DATETIME NOT NULL,
+    StartTime TIMESTAMP NOT NULL,
+    EndTime TIMESTAMP NOT NULL,
     Status VARCHAR(20) DEFAULT 'Pending' CHECK (Status IN ('Pending','Approved','Denied','Returned','Late')),
     ApprovedBy INT,
-    CreatedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (UserID) REFERENCES "User"(UserID),
+    CreatedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (UserID) REFERENCES UserAccount(UserID),
     FOREIGN KEY (EquipmentID) REFERENCES Equipment(EquipmentID),
-    FOREIGN KEY (ApprovedBy) REFERENCES "User"(UserID),
-    CHECK (EndTime > StartTime),
-    UNIQUE (EquipmentID, StartTime, EndTime)
+    FOREIGN KEY (ApprovedBy) REFERENCES UserAccount(UserID),
+    CHECK (EndTime > StartTime)
 );
 
 -- Table: UsageLog
 CREATE TABLE UsageLog (
-    LogID INT PRIMARY KEY,
+    LogID SERIAL PRIMARY KEY,
     UserID INT NOT NULL,
     EquipmentID INT NOT NULL,
     ReservationID INT NOT NULL,
-    CheckOutTime DATETIME,
-    CheckInTime DATETIME,
+    CheckOutTime TIMESTAMP,
+    CheckInTime TIMESTAMP,
     Condition VARCHAR(255),
-    LoggedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (UserID) REFERENCES "User"(UserID),
+    LoggedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (UserID) REFERENCES UserAccount(UserID),
     FOREIGN KEY (EquipmentID) REFERENCES Equipment(EquipmentID),
     FOREIGN KEY (ReservationID) REFERENCES Reservation(ReservationID),
     CHECK (CheckInTime IS NULL OR CheckOutTime IS NULL OR CheckInTime > CheckOutTime)
 );
 
--- Sample Inserts
-INSERT INTO Role (RoleID, RoleName) VALUES (1, 'Admin'), (2, 'Student'), (3, 'Faculty');
-INSERT INTO "User" (UserID, FirstName, LastName, Email, PasswordHash, RoleID) VALUES (1, 'Alice', 'Smith', 'alice@univ.edu', 'hash1', 2);
-INSERT INTO Equipment (EquipmentID, EquipmentName, TotalQty, CurrQty) VALUES (1, 'Microscope', 5, 5);
+-- Trigger: decrease CurrQty when a reservation status changes to Approved
+CREATE OR REPLACE FUNCTION decrease_equipment_qty()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.Status != 'Approved' AND NEW.Status = 'Approved' THEN
+        UPDATE Equipment
+        SET CurrQty = CurrQty - NEW.Qty
+        WHERE EquipmentID = NEW.EquipmentID;
 
--- Sample Query: Check available equipment
-SELECT EquipmentName, CurrQty FROM Equipment WHERE CurrQty > 0;
+        IF (SELECT CurrQty FROM Equipment WHERE EquipmentID = NEW.EquipmentID) < 0 THEN
+            RAISE EXCEPTION 'Not enough equipment available';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
--- Sample Query: Find overlapping reservations
-SELECT * FROM Reservation r1
-WHERE EXISTS (
-    SELECT 1 FROM Reservation r2
-    WHERE r1.EquipmentID = r2.EquipmentID
-      AND r1.ReservationID <> r2.ReservationID
-      AND r1.StartTime < r2.EndTime
-      AND r1.EndTime > r2.StartTime
-);
+CREATE TRIGGER trg_decrease_qty
+AFTER UPDATE ON Reservation
+FOR EACH ROW EXECUTE FUNCTION decrease_equipment_qty();
+
+-- Trigger: restore CurrQty when a reservation is denied or returned
+CREATE OR REPLACE FUNCTION restore_equipment_qty()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF OLD.Status = 'Approved' AND NEW.Status IN ('Denied', 'Returned') THEN
+        UPDATE Equipment
+        SET CurrQty = CurrQty + OLD.Qty
+        WHERE EquipmentID = OLD.EquipmentID;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_restore_qty
+AFTER UPDATE ON Reservation
+FOR EACH ROW EXECUTE FUNCTION restore_equipment_qty();
