@@ -8,15 +8,40 @@ function App() {
   const [page, setPage] = useState('equipment');
 
   return (
-    <div className="App">
-      <nav style={{ marginBottom: 20 }}>
-        <button onClick={() => setPage('equipment')}>Equipment</button>
-        <button onClick={() => setPage('reserve')}>New Reservation</button>
-        <button onClick={() => setPage('reservations')}>Reservations</button>
-      </nav>
-      {page === 'equipment' && <EquipmentList />}
-      {page === 'reserve' && <ReservationForm />}
-      {page === 'reservations' && <ReservationsPage />}
+    <div className="app-shell">
+      <header className="app-header">
+        <div className="app-header-inner">
+          <span className="app-title">
+            Research Lab Equipment Booking System
+          </span>
+          <nav className="app-nav">
+            <button
+              className={`nav-link${page === "equipment" ? " active" : ""}`}
+              onClick={() => setPage("equipment")}
+            >
+              Equipment
+            </button>
+            <button
+              className={`nav-link${page === "reserve" ? " active" : ""}`}
+              onClick={() => setPage("reserve")}
+            >
+              New Reservation
+            </button>
+            <button
+              className={`nav-link${page === "reservations" ? " active" : ""}`}
+              onClick={() => setPage("reservations")}
+            >
+              Reservations
+            </button>
+          </nav>
+        </div>
+      </header>
+
+      <main>
+        {page === "equipment" && <EquipmentList />}
+        {page === "reserve" && <ReservationForm />}
+        {page === "reservations" && <ReservationsPage />}
+      </main>
     </div>
   );
 }

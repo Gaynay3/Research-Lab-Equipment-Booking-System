@@ -7,6 +7,7 @@ function ReservationsPage() {
   const [equipment, setEquipment] = useState([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState('');
+  const [isError, setIsError] = useState(false);
 
   useEffect(() => {
     refresh();
@@ -31,34 +32,64 @@ function ReservationsPage() {
     return eq ? eq.EquipmentName : id;
   };
 
-  const handleApprove = async id => {
-    setMessage('');
+  const formatTime = (t) => t.replace("T", " ").slice(0, 16);
+
+  const handleApprove = async (id) => {
+    setMessage("");
+    setIsError(false);
     try {
       await approveReservation(id);
-      setMessage('Reservation approved.');
+      setMessage("Reservation approved.");
+      setIsError(false);
       refresh();
     } catch (err) {
-      setMessage('Error: ' + (err.response?.data?.detail || 'Could not approve.'));
+      setIsError(true);
+      setMessage(
+        "Error: " + (err.response?.data?.detail || "Could not approve."),
+      );
     }
   };
-  const handleDeny = async id => {
-    setMessage('');
+
+  const handleDeny = async (id) => {
+    setMessage("");
+    setIsError(false);
     try {
       await denyReservation(id);
-      setMessage('Reservation denied.');
+      setMessage("Reservation denied.");
+      setIsError(false);
       refresh();
     } catch (err) {
-      setMessage('Error: ' + (err.response?.data?.detail || 'Could not deny.'));
+      setIsError(true);
+      setMessage("Error: " + (err.response?.data?.detail || "Could not deny."));
     }
   };
 
-  if (loading) return <div>Loading reservations...</div>;
+  const statusClass = (status) => {
+    if (status === "Pending") return "status-badge status-pending";
+    if (status === "Approved") return "status-badge status-approved";
+    if (status === "Denied") return "status-badge status-denied";
+    return "status-badge status-pending";
+  };
+
+  if (loading) {
+    return (
+      <div className="page-content">
+        <p className="loading-text">Loading reservations...</p>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <h2>Reservations</h2>
-      {message && <div>{message}</div>}
-      <table>
+    <div className="page-content">
+      <h2 className="page-heading">Reservations</h2>
+
+      {message && (
+        <div className={isError ? "message-error" : "message-success"}>
+          {message}
+        </div>
+      )}
+
+      <table className="data-table">
         <thead>
           <tr>
             <th>ID</th>
@@ -78,15 +109,27 @@ function ReservationsPage() {
               <td>{userName(r.UserID)}</td>
               <td>{equipmentName(r.EquipmentID)}</td>
               <td>{r.Qty}</td>
-              <td>{r.StartTime.replace('T', ' ').slice(0, 16)}</td>
-              <td>{r.EndTime.replace('T', ' ').slice(0, 16)}</td>
-              <td>{r.Status}</td>
+              <td>{formatTime(r.StartTime)}</td>
+              <td>{formatTime(r.EndTime)}</td>
               <td>
-                {r.Status === 'Pending' && (
-                  <>
-                    <button onClick={() => handleApprove(r.ReservationID)}>Approve</button>
-                    <button onClick={() => handleDeny(r.ReservationID)}>Deny</button>
-                  </>
+                <span className={statusClass(r.Status)}>{r.Status}</span>
+              </td>
+              <td>
+                {r.Status === "Pending" && (
+                  <div className="btn-actions">
+                    <button
+                      className="btn btn-primary btn-sm"
+                      onClick={() => handleApprove(r.ReservationID)}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      className="btn btn-outline btn-sm"
+                      onClick={() => handleDeny(r.ReservationID)}
+                    >
+                      Deny
+                    </button>
+                  </div>
                 )}
               </td>
             </tr>

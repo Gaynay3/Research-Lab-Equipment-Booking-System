@@ -12,6 +12,8 @@ function ReservationForm({ onReservation }) {
     EndTime: ''
   });
   const [message, setMessage] = useState('');
+  const [isError, setIsError] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     getUsers().then(setUsers);
@@ -25,51 +27,130 @@ function ReservationForm({ onReservation }) {
   const handleSubmit = async e => {
     e.preventDefault();
     setMessage('');
+    setIsError(false);
+    setSubmitting(true);
     try {
       await createReservation({
         ...form,
-        Qty: Number(form.Qty)
+        Qty: Number(form.Qty),
       });
-      setMessage('Reservation submitted!');
-      setForm({ UserID: '', EquipmentID: '', Qty: 1, StartTime: '', EndTime: '' });
+      setMessage("Reservation submitted successfully.");
+      setIsError(false);
+      setForm({
+        UserID: "",
+        EquipmentID: "",
+        Qty: 1,
+        StartTime: "",
+        EndTime: "",
+      });
       if (onReservation) onReservation();
     } catch (err) {
-      setMessage('Error: ' + (err.response?.data?.detail || 'Could not submit reservation.'));
+      setIsError(true);
+      setMessage(
+        "Error: " +
+          (err.response?.data?.detail || "Could not submit reservation."),
+      );
+    } finally {
+      setSubmitting(false);
     }
   };
 
   return (
-    <div>
-      <h2>New Reservation</h2>
-      <form onSubmit={handleSubmit}>
-        <label>User:
-          <select name="UserID" value={form.UserID} onChange={handleChange} required>
-            <option value="">Select user</option>
-            {users.map(u => (
-              <option key={u.UserID} value={u.UserID}>{u.FirstName} {u.LastName}</option>
-            ))}
-          </select>
-        </label>
-        <label>Equipment:
-          <select name="EquipmentID" value={form.EquipmentID} onChange={handleChange} required>
-            <option value="">Select equipment</option>
-            {equipment.map(eq => (
-              <option key={eq.EquipmentID} value={eq.EquipmentID}>{eq.EquipmentName}</option>
-            ))}
-          </select>
-        </label>
-        <label>Quantity:
-          <input type="number" name="Qty" min="1" value={form.Qty} onChange={handleChange} required />
-        </label>
-        <label>Start Time:
-          <input type="datetime-local" name="StartTime" value={form.StartTime} onChange={handleChange} required />
-        </label>
-        <label>End Time:
-          <input type="datetime-local" name="EndTime" value={form.EndTime} onChange={handleChange} required />
-        </label>
-        <button type="submit">Submit</button>
-      </form>
-      {message && <div>{message}</div>}
+    <div className="page-content">
+      <h2 className="page-heading">New Reservation</h2>
+
+      {message && (
+        <div className={isError ? "message-error" : "message-success"}>
+          {message}
+        </div>
+      )}
+
+      <div className="form-card">
+        <form onSubmit={handleSubmit} noValidate>
+          <div className="form-group">
+            <label htmlFor="UserID">User</label>
+            <select
+              id="UserID"
+              name="UserID"
+              value={form.UserID}
+              onChange={handleChange}
+              required
+            >
+              <option value="">Select user</option>
+              {users.map((u) => (
+                <option key={u.UserID} value={u.UserID}>
+                  {u.FirstName} {u.LastName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="EquipmentID">Equipment</label>
+            <select
+              id="EquipmentID"
+              name="EquipmentID"
+              value={form.EquipmentID}
+              onChange={handleChange}
+              required
+            >
+              <option value="">Select equipment</option>
+              {equipment.map((eq) => (
+                <option key={eq.EquipmentID} value={eq.EquipmentID}>
+                  {eq.EquipmentName}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="Qty">Quantity</label>
+            <input
+              id="Qty"
+              type="number"
+              name="Qty"
+              min="1"
+              value={form.Qty}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="StartTime">Start Time</label>
+            <input
+              id="StartTime"
+              type="datetime-local"
+              name="StartTime"
+              value={form.StartTime}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="form-group">
+            <label htmlFor="EndTime">End Time</label>
+            <input
+              id="EndTime"
+              type="datetime-local"
+              name="EndTime"
+              value={form.EndTime}
+              onChange={handleChange}
+              required
+            />
+          </div>
+
+          <div className="mt-2">
+            <button
+              type="submit"
+              className="btn btn-primary"
+              disabled={submitting}
+            >
+              {submitting ? "Submitting..." : "Submit Reservation"}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

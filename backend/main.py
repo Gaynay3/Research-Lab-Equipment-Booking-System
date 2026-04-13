@@ -46,7 +46,7 @@ class Equipment(BaseModel):
     TotalQty: int = Field(alias="totalqty")
     CurrQty: int = Field(alias="currqty")
 
-    model_config = {"populate_by_name": True}
+    model_config = {"populate_by_name": True, "serialize_by_alias": False}
 
 
 class Reservation(BaseModel):
@@ -60,7 +60,7 @@ class Reservation(BaseModel):
     ApprovedBy: Optional[int] = Field(alias="approvedby")
     CreatedAt: str = Field(alias="createdat")
 
-    model_config = {"populate_by_name": True}
+    model_config = {"populate_by_name": True, "serialize_by_alias": False}
 
 
 class ReservationCreate(BaseModel):
@@ -78,7 +78,7 @@ class User(BaseModel):
     Email: str = Field(alias="email")
     RoleID: int = Field(alias="roleid")
 
-    model_config = {"populate_by_name": True}
+    model_config = {"populate_by_name": True, "serialize_by_alias": False}
 
 
 def rows_to_dicts(cursor, rows):
@@ -97,7 +97,7 @@ def root():
     return {"message": "Research Lab Equipment Booking System API"}
 
 
-@app.get("/equipment", response_model=List[Equipment])
+@app.get("/equipment", response_model=List[Equipment], response_model_by_alias=False)
 def get_equipment():
     conn = get_db_conn()
     cur = conn.cursor()
@@ -111,7 +111,9 @@ def get_equipment():
     return [Equipment(**row) for row in result]
 
 
-@app.get("/reservations", response_model=List[Reservation])
+@app.get(
+    "/reservations", response_model=List[Reservation], response_model_by_alias=False
+)
 def get_reservations():
     conn = get_db_conn()
     cur = conn.cursor()
@@ -135,7 +137,7 @@ def get_reservations():
     return [Reservation(**dict(zip(keys, row))) for row in rows]
 
 
-@app.post("/reservations", response_model=Reservation)
+@app.post("/reservations", response_model=Reservation, response_model_by_alias=False)
 def create_reservation(res: ReservationCreate):
     conn = get_db_conn()
     cur = conn.cursor()
@@ -167,7 +169,11 @@ def create_reservation(res: ReservationCreate):
     return Reservation(**dict(zip(keys, row)))
 
 
-@app.put("/reservations/{reservation_id}/approve", response_model=Reservation)
+@app.put(
+    "/reservations/{reservation_id}/approve",
+    response_model=Reservation,
+    response_model_by_alias=False,
+)
 def approve_reservation(reservation_id: int):
     conn = get_db_conn()
     cur = conn.cursor()
@@ -198,7 +204,11 @@ def approve_reservation(reservation_id: int):
     return Reservation(**dict(zip(keys, row)))
 
 
-@app.put("/reservations/{reservation_id}/deny", response_model=Reservation)
+@app.put(
+    "/reservations/{reservation_id}/deny",
+    response_model=Reservation,
+    response_model_by_alias=False,
+)
 def deny_reservation(reservation_id: int):
     conn = get_db_conn()
     cur = conn.cursor()
@@ -229,7 +239,7 @@ def deny_reservation(reservation_id: int):
     return Reservation(**dict(zip(keys, row)))
 
 
-@app.get("/users", response_model=List[User])
+@app.get("/users", response_model=List[User], response_model_by_alias=False)
 def get_users():
     conn = get_db_conn()
     cur = conn.cursor()

@@ -12,19 +12,25 @@ function EquipmentList() {
     });
   }, []);
 
-  if (loading) return <div>Loading equipment...</div>;
+  if (loading) {
+    return (
+      <div className="page-content">
+        <p className="loading-text">Loading equipment...</p>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <h2>Equipment List</h2>
-      <table>
+    <div className="page-content">
+      <h2 className="page-heading">Equipment</h2>
+      <table className="data-table">
         <thead>
           <tr>
             <th>Name</th>
             <th>Category</th>
             <th>Description</th>
             <th>Total Qty</th>
-            <th>Current Qty</th>
+            <th>Available</th>
           </tr>
         </thead>
         <tbody>
@@ -34,7 +40,13 @@ function EquipmentList() {
               <td>{eq.Category}</td>
               <td>{eq.Description}</td>
               <td>{eq.TotalQty}</td>
-              <td>{eq.CurrQty}</td>
+              <td>
+                {eq.CurrQty === 0 ? (
+                  <span className="qty-unavailable">Unavailable</span>
+                ) : (
+                  eq.CurrQty
+                )}
+              </td>
             </tr>
           ))}
         </tbody>
