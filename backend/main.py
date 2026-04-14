@@ -3,11 +3,20 @@
 # Connects to PostgreSQL using psycopg2
 
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from datetime import datetime, timedelta
 from typing import List, Optional
 
 import psycopg2
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jose import JWTError, jwt
+from jose.exceptions import ExpiredSignatureError
+from passlib.context import CryptContext
 from pydantic import BaseModel, Field
 
 # Database connection settings (edit as needed)
@@ -16,6 +25,11 @@ DB_PORT = os.getenv("DB_PORT", "5432")
 DB_NAME = os.getenv("DB_NAME", "lab_booking")
 DB_USER = os.getenv("DB_USER", "postgres")
 DB_PASS = os.getenv("DB_PASS", "postgres")
+SECRET_KEY = os.getenv("SECRET_KEY")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 
 def get_db_conn():
@@ -81,20 +95,103 @@ class User(BaseModel):
     model_config = {"populate_by_name": True, "serialize_by_alias": False}
 
 
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str
+    user_id: int
+    role_id: int
+    first_name: str
+
+
 def rows_to_dicts(cursor, rows):
     keys = [desc[0] for desc in cursor.description]
     return [dict(zip(keys, row)) for row in rows]
 
 
-def row_to_dict(cursor, row):
-    keys = [desc[0] for desc in cursor.description]
-    return dict(zip(keys, row))
+def verify_password(plain, hashed):
+    return pwd_context.verify(plain, hashed)
+
+
+def create_access_token(data, expires_delta):
+    to_encode = data.copy()
+    to_encode["exp"] = datetime.utcnow() + expires_delta
+    if "sub" in to_encode:
+        to_encode["sub"] = str(to_encode["sub"])
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_id = payload.get("sub")
+        if user_id is None:
+            raise credentials_exception
+        user_id = int(user_id)
+        if user_id is None:
+            raise credentials_exception
+    except ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except JWTError:
+        raise credentials_exception
+    conn = get_db_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT UserID, FirstName, LastName, Email, RoleID FROM UserAccount WHERE UserID = %s",
+        (user_id,),
+    )
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    if row is None:
+        raise credentials_exception
+    return User(
+        **dict(zip(["userid", "firstname", "lastname", "email", "roleid"], row))
+    )
 
 
 # API endpoints
 @app.get("/")
 def root():
     return {"message": "Research Lab Equipment Booking System API"}
+
+
+@app.post("/login", response_model=TokenResponse)
+def login(form_data: OAuth2PasswordRequestForm = Depends()):
+    conn = get_db_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "SELECT UserID, FirstName, LastName, Email, PasswordHash, RoleID FROM UserAccount WHERE Email = %s",
+        (form_data.username,),
+    )
+    row = cur.fetchone()
+    cur.close()
+    conn.close()
+    if row is None or not verify_password(form_data.password, row[4]):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect email or password.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    user_id, first_name, _, _, _, role_id = row
+    token = create_access_token(
+        {"sub": user_id}, timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    )
+    return TokenResponse(
+        access_token=token,
+        token_type="bearer",
+        user_id=user_id,
+        role_id=role_id,
+        first_name=first_name,
+    )
 
 
 @app.get("/equipment", response_model=List[Equipment], response_model_by_alias=False)
@@ -138,15 +235,13 @@ def get_reservations():
 
 
 @app.post("/reservations", response_model=Reservation, response_model_by_alias=False)
-def create_reservation(res: ReservationCreate):
+def create_reservation(
+    res: ReservationCreate, current_user: User = Depends(get_current_user)
+):
     conn = get_db_conn()
     cur = conn.cursor()
     cur.execute(
-        """
-        INSERT INTO Reservation (UserID, EquipmentID, Qty, StartTime, EndTime)
-        VALUES (%s, %s, %s, %s, %s)
-        RETURNING ReservationID, UserID, EquipmentID, Qty, CAST(StartTime AS TEXT), CAST(EndTime AS TEXT), Status, ApprovedBy, CAST(CreatedAt AS TEXT)
-        """,
+        "INSERT INTO Reservation (UserID, EquipmentID, Qty, StartTime, EndTime) VALUES (%s, %s, %s, %s, %s) RETURNING ReservationID, UserID, EquipmentID, Qty, CAST(StartTime AS TEXT), CAST(EndTime AS TEXT), Status, ApprovedBy, CAST(CreatedAt AS TEXT)",
         (res.UserID, res.EquipmentID, res.Qty, res.StartTime, res.EndTime),
     )
     row = cur.fetchone()
@@ -174,14 +269,18 @@ def create_reservation(res: ReservationCreate):
     response_model=Reservation,
     response_model_by_alias=False,
 )
-def approve_reservation(reservation_id: int):
+def approve_reservation(
+    reservation_id: int, current_user: User = Depends(get_current_user)
+):
+    if current_user.RoleID != 1:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can approve reservations.",
+        )
     conn = get_db_conn()
     cur = conn.cursor()
     cur.execute(
-        """
-        UPDATE Reservation SET Status='Approved' WHERE ReservationID=%s
-        RETURNING ReservationID, UserID, EquipmentID, Qty, CAST(StartTime AS TEXT), CAST(EndTime AS TEXT), Status, ApprovedBy, CAST(CreatedAt AS TEXT)
-        """,
+        "UPDATE Reservation SET Status='Approved' WHERE ReservationID=%s RETURNING ReservationID, UserID, EquipmentID, Qty, CAST(StartTime AS TEXT), CAST(EndTime AS TEXT), Status, ApprovedBy, CAST(CreatedAt AS TEXT)",
         (reservation_id,),
     )
     row = cur.fetchone()
@@ -209,14 +308,18 @@ def approve_reservation(reservation_id: int):
     response_model=Reservation,
     response_model_by_alias=False,
 )
-def deny_reservation(reservation_id: int):
+def deny_reservation(
+    reservation_id: int, current_user: User = Depends(get_current_user)
+):
+    if current_user.RoleID != 1:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can deny reservations.",
+        )
     conn = get_db_conn()
     cur = conn.cursor()
     cur.execute(
-        """
-        UPDATE Reservation SET Status='Denied' WHERE ReservationID=%s
-        RETURNING ReservationID, UserID, EquipmentID, Qty, CAST(StartTime AS TEXT), CAST(EndTime AS TEXT), Status, ApprovedBy, CAST(CreatedAt AS TEXT)
-        """,
+        "UPDATE Reservation SET Status='Denied' WHERE ReservationID=%s RETURNING ReservationID, UserID, EquipmentID, Qty, CAST(StartTime AS TEXT), CAST(EndTime AS TEXT), Status, ApprovedBy, CAST(CreatedAt AS TEXT)",
         (reservation_id,),
     )
     row = cur.fetchone()
