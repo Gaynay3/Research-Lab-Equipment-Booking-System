@@ -1,32 +1,30 @@
-import React, { useEffect, useState } from 'react';
-import { getEquipment, getUsers, createReservation } from './api';
+import React, { useEffect, useState } from "react";
+import { getEquipment, createReservation } from "./api";
 
-function ReservationForm({ onReservation }) {
-  const [users, setUsers] = useState([]);
+function ReservationForm({ onReservation, user }) {
   const [equipment, setEquipment] = useState([]);
   const [form, setForm] = useState({
-    UserID: '',
-    EquipmentID: '',
+    UserID: user ? user.user_id : "",
+    EquipmentID: "",
     Qty: 1,
-    StartTime: '',
-    EndTime: ''
+    StartTime: "",
+    EndTime: "",
   });
-  const [message, setMessage] = useState('');
+  const [message, setMessage] = useState("");
   const [isError, setIsError] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    getUsers().then(setUsers);
     getEquipment().then(setEquipment);
   }, []);
 
-  const handleChange = e => {
+  const handleChange = (e) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
-  const handleSubmit = async e => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setMessage('');
+    setMessage("");
     setIsError(false);
     setSubmitting(true);
     try {
@@ -37,7 +35,7 @@ function ReservationForm({ onReservation }) {
       setMessage("Reservation submitted successfully.");
       setIsError(false);
       setForm({
-        UserID: "",
+        UserID: user ? user.user_id : "",
         EquipmentID: "",
         Qty: 1,
         StartTime: "",
@@ -67,24 +65,6 @@ function ReservationForm({ onReservation }) {
 
       <div className="form-card">
         <form onSubmit={handleSubmit} noValidate>
-          <div className="form-group">
-            <label htmlFor="UserID">User</label>
-            <select
-              id="UserID"
-              name="UserID"
-              value={form.UserID}
-              onChange={handleChange}
-              required
-            >
-              <option value="">Select user</option>
-              {users.map((u) => (
-                <option key={u.UserID} value={u.UserID}>
-                  {u.FirstName} {u.LastName}
-                </option>
-              ))}
-            </select>
-          </div>
-
           <div className="form-group">
             <label htmlFor="EquipmentID">Equipment</label>
             <select

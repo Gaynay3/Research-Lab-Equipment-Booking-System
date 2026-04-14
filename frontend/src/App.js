@@ -39,21 +39,42 @@ function App() {
     <div className="app-shell">
       <header className="app-header">
         <div className="app-header-inner">
-          <span className="app-title">Research Lab Equipment Booking System</span>
+          <span className="app-title">
+            Research Lab Equipment Booking System
+          </span>
           <nav className="app-nav">
-            <button className={"nav-link" + (page === "equipment" ? " active" : "")} onClick={() => setPage("equipment")}>Equipment</button>
-            <button className={"nav-link" + (page === "reserve" ? " active" : "")} onClick={() => setPage("reserve")}>New Reservation</button>
+            <button
+              className={"nav-link" + (page === "equipment" ? " active" : "")}
+              onClick={() => setPage("equipment")}
+            >
+              Equipment
+            </button>
+            <button
+              className={"nav-link" + (page === "reserve" ? " active" : "")}
+              onClick={() => setPage("reserve")}
+            >
+              New Reservation
+            </button>
             {user.role_id === 1 && (
-              <button className={"nav-link" + (page === "reservations" ? " active" : "")} onClick={() => setPage("reservations")}>Reservations</button>
+              <button
+                className={
+                  "nav-link" + (page === "reservations" ? " active" : "")
+                }
+                onClick={() => setPage("reservations")}
+              >
+                Reservations
+              </button>
             )}
             <span className="nav-user">Welcome, {user.first_name}</span>
-            <button className="nav-link" onClick={handleLogout}>Logout</button>
+            <button className="nav-link" onClick={handleLogout}>
+              Logout
+            </button>
           </nav>
         </div>
       </header>
       <main>
         {page === "equipment" && <EquipmentList />}
-        {page === "reserve" && <ReservationForm />}
+        {page === "reserve" && <ReservationForm user={user} />}
         {page === "reservations" && user.role_id === 1 && <ReservationsPage />}
       </main>
     </div>
