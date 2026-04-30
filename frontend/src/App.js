@@ -73,7 +73,7 @@ function App() {
         </div>
       </header>
       <main>
-        {page === "equipment" && <EquipmentList />}
+        {page === "equipment" && <EquipmentList user={user} />}
         {page === "reserve" && <ReservationForm user={user} />}
         {page === "reservations" && user.role_id === 1 && <ReservationsPage />}
       </main>

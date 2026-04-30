@@ -35,3 +35,17 @@ export const denyReservation = (id) =>
   axios.put(API_BASE + "/reservations/" + id + "/deny").then((res) => res.data);
 export const getUsers = () =>
   axios.get(API_BASE + "/users").then((res) => res.data);
+
+export const getCategories = () =>
+  axios.get(API_BASE + "/categories").then((res) => res.data);
+
+export const createCategory = (data) =>
+  axios.post(API_BASE + "/categories", data).then((res) => res.data);
+
+export const createEquipment = (data) =>
+  axios.post(API_BASE + "/equipment", data).then((res) => res.data);
+
+export const addEquipmentQty = (id, amount) =>
+  axios
+    .patch(API_BASE + "/equipment/" + id + "/quantity", { Amount: amount })
+    .then((res) => res.data);

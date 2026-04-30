@@ -52,31 +52,16 @@ A simple, beginner-friendly prototype for a research lab equipment booking syste
 
 #### Setting Up the `.env` File
 
-The backend requires a `.env` file in the `backend/` folder with your database credentials and a JWT secret key:
+The backend requires a `.env` file in the `backend/` folder with a JWT secret key:
 
 ```
-DB_HOST=localhost
-DB_PORT=5432
-DB_NAME=lab_booking
-DB_USER=<your_pg_username>
-DB_PASS=<your_pg_password>
 SECRET_KEY=<your_secret_key>
 ```
 
 **Generating a secure `SECRET_KEY`:**
-
-The secret key is used to sign JWT tokens. It should be a long, random string. Generate one using any of these methods:
-
-- **Python** (recommended):
-	```
-	python -c "import secrets; print(secrets.token_hex(32))"
-	```
-- **OpenSSL** (Mac/Linux):
-	```
-	openssl rand -hex 32
-	```
-
-Copy the output and paste it as the value for `SECRET_KEY` in your `.env` file. Never commit this file to version control — it is already listed in `.gitignore`.
+```
+python -c "import secrets; print(secrets.token_hex(32))"
+```
 
 ### 3. Frontend (React)
 1. Open a terminal in the `frontend/` folder.
