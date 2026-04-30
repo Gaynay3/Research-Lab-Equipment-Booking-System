@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 
 import psycopg2
+import psycopg2.errors
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -84,6 +85,28 @@ class ReservationCreate(BaseModel):
     Qty: int
     StartTime: str
     EndTime: str
+
+
+class Category(BaseModel):
+    CategoryID: int = Field(alias="categoryid")
+    CategoryName: str = Field(alias="categoryname")
+
+    model_config = {"populate_by_name": True, "serialize_by_alias": False}
+
+
+class CategoryCreate(BaseModel):
+    CategoryName: str
+
+
+class EquipmentCreate(BaseModel):
+    EquipmentName: str
+    CategoryID: Optional[int] = None
+    Description: Optional[str] = None
+    Qty: int
+
+
+class QuantityIncrease(BaseModel):
+    Amount: int
 
 
 class User(BaseModel):
@@ -207,6 +230,116 @@ def get_equipment():
     cur.close()
     conn.close()
     return [Equipment(**row) for row in result]
+
+
+@app.get("/categories", response_model=List[Category], response_model_by_alias=False)
+def get_categories():
+    conn = get_db_conn()
+    cur = conn.cursor()
+    cur.execute("SELECT CategoryID, CategoryName FROM Category ORDER BY CategoryName")
+    rows = cur.fetchall()
+    result = rows_to_dicts(cur, rows)
+    cur.close()
+    conn.close()
+    return [Category(**row) for row in result]
+
+
+@app.post("/categories", response_model=Category, response_model_by_alias=False)
+def create_category(
+    body: CategoryCreate, current_user: User = Depends(get_current_user)
+):
+    if current_user.RoleID != 1:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can create categories.",
+        )
+    conn = get_db_conn()
+    cur = conn.cursor()
+    try:
+        cur.execute(
+            "INSERT INTO Category (CategoryName) VALUES (%s) RETURNING CategoryID, CategoryName",
+            (body.CategoryName,),
+        )
+        row = cur.fetchone()
+        conn.commit()
+    except psycopg2.errors.UniqueViolation:
+        conn.rollback()
+        cur.close()
+        conn.close()
+        raise HTTPException(status_code=400, detail="Category already exists.")
+    cur.close()
+    conn.close()
+    return Category(**dict(zip(["categoryid", "categoryname"], row)))
+
+
+@app.post("/equipment", response_model=Equipment, response_model_by_alias=False)
+def create_equipment(
+    body: EquipmentCreate, current_user: User = Depends(get_current_user)
+):
+    if current_user.RoleID != 1:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can add equipment.",
+        )
+    conn = get_db_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "INSERT INTO Equipment (EquipmentName, Description, CategoryID, TotalQty, CurrQty) VALUES (%s, %s, %s, %s, %s) RETURNING EquipmentID",
+        (body.EquipmentName, body.Description, body.CategoryID, body.Qty, body.Qty),
+    )
+    row = cur.fetchone()
+    conn.commit()
+    equipment_id = row[0]
+    cur.execute(
+        "SELECT e.EquipmentID, e.EquipmentName, e.Description, e.SerialNumber, c.CategoryName, e.TotalQty, e.CurrQty FROM Equipment e LEFT JOIN Category c ON e.CategoryID = c.CategoryID WHERE e.EquipmentID = %s",
+        (equipment_id,),
+    )
+    rows = cur.fetchall()
+    result = rows_to_dicts(cur, rows)
+    cur.close()
+    conn.close()
+    return Equipment(**result[0])
+
+
+@app.patch(
+    "/equipment/{equipment_id}/quantity",
+    response_model=Equipment,
+    response_model_by_alias=False,
+)
+def increase_equipment_quantity(
+    equipment_id: int,
+    body: QuantityIncrease,
+    current_user: User = Depends(get_current_user),
+):
+    if current_user.RoleID != 1:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Only administrators can update equipment quantity.",
+        )
+    if body.Amount < 1:
+        raise HTTPException(status_code=400, detail="Amount must be at least 1.")
+    conn = get_db_conn()
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE Equipment SET TotalQty = TotalQty + %s, CurrQty = CurrQty + %s WHERE EquipmentID = %s RETURNING EquipmentID",
+        (body.Amount, body.Amount, equipment_id),
+    )
+    row = cur.fetchone()
+    if not row:
+        conn.rollback()
+        cur.close()
+        conn.close()
+        raise HTTPException(status_code=404, detail="Equipment not found.")
+    conn.commit()
+    cur.execute(
+        "SELECT e.EquipmentID, e.EquipmentName, e.Description, e.SerialNumber, c.CategoryName, e.TotalQty, e.CurrQty FROM Equipment e LEFT JOIN Category c ON e.CategoryID = c.CategoryID WHERE e.EquipmentID = %s",
+        (equipment_id,),
+    )
+    rows = cur.fetchall()
+    result = rows_to_dicts(cur, rows)
+    cur.close()
+    conn.close()
+    return Equipment(**result[0])
 
 
 @app.get(
