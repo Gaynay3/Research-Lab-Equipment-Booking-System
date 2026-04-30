@@ -1,1 +1,23 @@
+# Environment variables
 .env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Node
+node_modules/
+frontend/build/
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
