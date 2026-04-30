@@ -3,6 +3,7 @@
 # Connects to PostgreSQL using psycopg2
 
 import os
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -56,7 +57,7 @@ class Equipment(BaseModel):
     EquipmentName: str = Field(alias="equipmentname")
     Description: Optional[str] = Field(alias="description")
     SerialNumber: Optional[str] = Field(alias="serialnumber")
-    Category: Optional[str] = Field(alias="category")
+    Category: Optional[str] = Field(alias="categoryname")
     TotalQty: int = Field(alias="totalqty")
     CurrQty: int = Field(alias="currqty")
 
@@ -199,7 +200,7 @@ def get_equipment():
     conn = get_db_conn()
     cur = conn.cursor()
     cur.execute(
-        "SELECT EquipmentID, EquipmentName, Description, SerialNumber, Category, TotalQty, CurrQty FROM Equipment ORDER BY EquipmentName"
+        "SELECT e.EquipmentID, e.EquipmentName, e.Description, e.SerialNumber, c.CategoryName, e.TotalQty, e.CurrQty FROM Equipment e LEFT JOIN Category c ON e.CategoryID = c.CategoryID ORDER BY e.EquipmentName"
     )
     rows = cur.fetchall()
     result = rows_to_dicts(cur, rows)

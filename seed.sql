@@ -9,11 +9,14 @@ INSERT INTO UserAccount (FirstName, LastName, Email, PasswordHash, RoleID) VALUE
 ('Alice', 'Smith', 'alice@univ.edu', '$2b$12$Wfuqew.qDEA/t1QfmT9VHuuCLsvp6yuX0qMHySOVbckDWv2rpmgTi', 2),
 ('Bob', 'Johnson', 'bob@univ.edu', '$2b$12$Wfuqew.qDEA/t1QfmT9VHuuCLsvp6yuX0qMHySOVbckDWv2rpmgTi', 3);
 
--- Equipment
-INSERT INTO Equipment (EquipmentName, Description, SerialNumber, Category, TotalQty, CurrQty) VALUES
-('Microscope', 'High precision microscope', 'SN-1001', 'Optics', 5, 5),
-('Centrifuge', 'Lab centrifuge', 'SN-2001', 'Biology', 2, 2),
-('Spectrometer', 'UV-Vis Spectrometer', 'SN-3001', 'Chemistry', 3, 3);
+-- Categories
+INSERT INTO Category (CategoryName) VALUES ('Optics'), ('Biology'), ('Chemistry');
+
+-- Equipment (CategoryID references Category table)
+INSERT INTO Equipment (EquipmentName, Description, SerialNumber, CategoryID, TotalQty, CurrQty) VALUES
+('Microscope', 'High precision microscope', 'SN-1001', 1, 5, 5),
+('Centrifuge', 'Lab centrifuge', 'SN-2001', 2, 2, 2),
+('Spectrometer', 'UV-Vis Spectrometer', 'SN-3001', 3, 3, 3);
 
 -- Reservations
 INSERT INTO Reservation (UserID, EquipmentID, Qty, StartTime, EndTime, Status) VALUES

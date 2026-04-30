@@ -1,4 +1,4 @@
--- Research Lab Equipment Booking System: Sprint 1 SQL Schema
+-- Research Lab Equipment Booking System: SQL Schema
 
 -- Table: Role
 CREATE TABLE Role (
@@ -17,13 +17,19 @@ CREATE TABLE UserAccount (
     FOREIGN KEY (RoleID) REFERENCES Role(RoleID)
 );
 
+-- Table: Category
+CREATE TABLE Category (
+    CategoryID SERIAL PRIMARY KEY,
+    CategoryName VARCHAR(100) NOT NULL UNIQUE
+);
+
 -- Table: Equipment
 CREATE TABLE Equipment (
     EquipmentID SERIAL PRIMARY KEY,
     EquipmentName VARCHAR(150) NOT NULL,
     Description VARCHAR(255),
     SerialNumber VARCHAR(100) UNIQUE,
-    Category VARCHAR(100),
+    CategoryID INT REFERENCES Category(CategoryID),
     TotalQty INT NOT NULL CHECK (TotalQty >= 0),
     CurrQty INT NOT NULL CHECK (CurrQty >= 0 AND CurrQty <= TotalQty)
 );
@@ -48,15 +54,11 @@ CREATE TABLE Reservation (
 -- Table: UsageLog
 CREATE TABLE UsageLog (
     LogID SERIAL PRIMARY KEY,
-    UserID INT NOT NULL,
-    EquipmentID INT NOT NULL,
     ReservationID INT NOT NULL,
     CheckOutTime TIMESTAMP,
     CheckInTime TIMESTAMP,
     Condition VARCHAR(255),
     LoggedAt TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (UserID) REFERENCES UserAccount(UserID),
-    FOREIGN KEY (EquipmentID) REFERENCES Equipment(EquipmentID),
     FOREIGN KEY (ReservationID) REFERENCES Reservation(ReservationID),
     CHECK (CheckInTime IS NULL OR CheckOutTime IS NULL OR CheckInTime > CheckOutTime)
 );
@@ -65,7 +67,6 @@ CREATE TABLE UsageLog (
 CREATE OR REPLACE FUNCTION check_reservation_overlap()
 RETURNS TRIGGER AS $$
 DECLARE
-    overlap_count INT;
     available_qty INT;
     total_reserved INT;
 BEGIN
