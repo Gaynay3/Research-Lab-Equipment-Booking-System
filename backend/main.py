@@ -281,8 +281,8 @@ def approve_reservation(
     conn = get_db_conn()
     cur = conn.cursor()
     cur.execute(
-        "UPDATE Reservation SET Status='Approved' WHERE ReservationID=%s RETURNING ReservationID, UserID, EquipmentID, Qty, CAST(StartTime AS TEXT), CAST(EndTime AS TEXT), Status, ApprovedBy, CAST(CreatedAt AS TEXT)",
-        (reservation_id,),
+        "UPDATE Reservation SET Status='Approved', ApprovedBy=%s WHERE ReservationID=%s RETURNING ReservationID, UserID, EquipmentID, Qty, CAST(StartTime AS TEXT), CAST(EndTime AS TEXT), Status, ApprovedBy, CAST(CreatedAt AS TEXT)",
+        (current_user.UserID, reservation_id),
     )
     row = cur.fetchone()
     conn.commit()
@@ -320,7 +320,7 @@ def deny_reservation(
     conn = get_db_conn()
     cur = conn.cursor()
     cur.execute(
-        "UPDATE Reservation SET Status='Denied' WHERE ReservationID=%s RETURNING ReservationID, UserID, EquipmentID, Qty, CAST(StartTime AS TEXT), CAST(EndTime AS TEXT), Status, ApprovedBy, CAST(CreatedAt AS TEXT)",
+        "UPDATE Reservation SET Status='Denied', ApprovedBy=NULL WHERE ReservationID=%s RETURNING ReservationID, UserID, EquipmentID, Qty, CAST(StartTime AS TEXT), CAST(EndTime AS TEXT), Status, ApprovedBy, CAST(CreatedAt AS TEXT)",
         (reservation_id,),
     )
     row = cur.fetchone()
